@@ -7,8 +7,6 @@ function getHockeyLeagues() {
     //Yahoo API variables
     var url;
     var response;
-    var document;
-    var root;
     var today = new Date();//defaults to today
     var modifyRosterXML = '';
 
@@ -21,8 +19,15 @@ function getHockeyLeagues() {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
       }
     });
-    const jsonData = XML_to_JSON(response);
-    Logger.log(jsonData);
+    var doc = XmlService.parse(response.getContentText());
+    var root = doc.getRootElement();
+    var team_keys = getElementsByTagName(root, 'team_key');
+    // var jsonData = XML_to_JSON(response);
+    // var data = JSON.parse(jsonData);
+    // var teams = jsonData.fanasy_content;//.users.user.games.game.teams.team;
+
+    Logger.log(team_keys);
+    Logger.log(doc);
 
 
   } else {
