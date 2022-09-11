@@ -1,21 +1,35 @@
+function main() {
+  //get all teams
+  const teams = getHockeyTeams();
+  // for each team, get the current roster
+  var rosters = [];
+  teams.forEach((team) => {
+    rosters.push(getTeamRoster(team));
+  });
+  Logger.log(rosters);
+}
+
 function getHockeyTeams() {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
-    //Yahoo API variables
 
     //Fetch a list of all hockey teams registered to the user
-    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nhl/teams';
-    const response = UrlFetchApp.fetch(url, {
+    //const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nhl/teams';
+    //TODO: temporarily using 411 for 2021 NHL season. Change simply to 'nhl' as above to keep on current season always
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=411/teams';
+    response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
       }
+      , "muteHttpExceptions": true
     });
+    // the return type is xml, find all 'team_key' items in the response and add to array
     const doc = XmlService.parse(response.getContentText());
     const root = doc.getRootElement();
-    const team_keys = getElementsByTagName(root, 'team_key');
 
-    Logger.log(team_keys);
+    const team_keys = getElementStringsByTagName(root, 'team_key');
+
     // return array of Yahoo hockey team_keys
     return team_keys;
   } else {
@@ -33,53 +47,59 @@ function getTeamRoster(team_key) {
     //Yahoo API variables
     var url, response, doc, root;
 
-    //Fetch all players, NHL teams, and eligible positions
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/teams;team_keys=nhl.l.' + team_key + '/players;sort=AR;sort_type=lastmonth;player_keys=';
-    response = UrlFetchApp.fetch(url, {
-      headers: {
-        'Authorization': 'Bearer ' + yahooService.getAccessToken()
-      }
-    });
-    doc = XmlService.parse(response.getContentText());
-    root = doc.getRootElement();
-    const player_keys = getElementsByTagName(root, 'player_key');
-    const player_teams = getElementsByTagName(root, 'editorial_team_abbr'); //editorial_team_key, editorial_team_full_name
-    const eligible_positions = getElementsByTagName(root, 'eligible_positions');
-
     //Get currently assigned position for each player based on the 'roster' call
     const today = new Date();//defaults to today
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/teams;team_keys=nhl.l.' + team_key + '/roster;date=' + dateToString(today);
+    //TODO: change back to today's date. Testing using a specific date
+    // url = 'https://fantasysports.yahooapis.com/fantasy/v2/teams;team_keys=nhl.l.' + team_key + '/roster;date=' + dateToString(today);
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-27';
+
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
       }
+      , "muteHttpExceptions": true
     });
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
-    const player_keys_unsorted = player_keys_unsorted.concat(getElementsByTagName(root, 'player_key'));
-    const selected_positions_unsorted = selected_positions_unsorted.concat(getElementsByTagName(root, 'selected_position'));
+    //put all players from the roster into an array
+    const player_elements = getElementObjectsByTagName(root, "player");
 
-    //filter the eligible positions to leave just the positions comma separated (remove first and last comma also)
-    for (var i = 0, x = eligible_positions.length; i < x; i++) {
-      eligible_positions[i] = eligible_positions[i].replace(/\W+/g, ",").slice(1).slice(0, -1);
-    }
+    // TODO: We could probably come up with a more in-depth way of doing this if we wanted
+    // Rank the players:
+    // Fetch all players, sorted by last month to determine ranking order
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/players;sort=AR;sort_type=lastmonth;player_keys=';
+    response = UrlFetchApp.fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + yahooService.getAccessToken()
+      }
+      , "muteHttpExceptions": true
+    });
+    console.log(response.getContentText());
+    doc = XmlService.parse(response.getContentText());
+    root = doc.getRootElement();
+    const player_keys_sorted = getElementStringsByTagName(root, 'player_key');
 
-    //filter the selected positions to leave just the position
-    for (var i = 0, x = selected_positions_unsorted.length; i < x; i++) {
-      selected_positions_unsorted[i] = selected_positions_unsorted[i].replace(/\W/g, "").slice(12);
-    }
-
-    //order the assigned positions to each player
-    var j = 0;
-    for (var i = 0, x = player_keys.length; i < x; i++) {
-      j = player_keys_unsorted.indexOf(player_keys[i]);
-      selected_positions[i] = selected_positions_unsorted[j];
-    }
-    j = 0;
+    //loop through each player element and extract the relevant data to our new object
+    var players = [];
+    const xmlNamespace = root.getNamespace();
+    player_elements.forEach((e) => {
+      const player_key = e.getChildText("player_key", xmlNamespace);
+      const player_rank = player_keys_sorted.indexOf(player_key);
+      const player = {
+        player_key: player_key,
+        // player_name: getElementStringsByTagName(e, "full")[0],
+        nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
+        eligible_positions: getElementStringsByTagName(e, "eligible_positions")[0].replace(/\s/g, ''),
+        selected_position: e.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
+        lineup_status: getElementStringsByTagName(e, "status_full")[0],
+        is_starting: getElementStringsByTagName(e, "is_starting")[0],
+        rank: player_rank
+      };
+      players.push(player);
+    });
 
     //return the values required to the set lineup function
-    return [player_keys, player_teams, eligible_positions, selected_positions];
-
+    return players;
   } else {
     // Present authorization URL to user in the logs
     const authorizationUrl = yahooService.getAuthorizationUrl();
@@ -115,6 +135,7 @@ function getYahooService_() {
 
 function setClientIdSecret() {
   // NOTE: Run this function once before anything else to set your Yahoo client ID and client secret in the property store
+  // Replace "TBD" with your Yahoo client ID and client secret
   var clientId = "TBD";
   var clientSecret = "TBD";
   var props = PropertiesService.getScriptProperties();

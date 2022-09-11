@@ -1,12 +1,22 @@
 /**
 * Find elements in an XML file by their tag name, returns them all in an array.
 */
-function getElementsByTagName(element, tagName) {  
+function getElementStringsByTagName(element, tagName) {  
   var data = [];
   var descendants = element.getDescendants();  
   for(i in descendants) {
     var elt = descendants[i].asElement();     
     if( elt !=null && elt.getName()== tagName) data.push(elt.getValue());
+  }
+  return data;
+}
+
+function getElementObjectsByTagName(element, tagName) {  
+  var data = [];
+  var descendants = element.getDescendants();  
+  for(i in descendants) {
+    var elt = descendants[i].asElement();     
+    if( elt !=null && elt.getName()== tagName) data.push(elt);
   }
   return data;
 }
