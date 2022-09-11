@@ -1,6 +1,34 @@
+function test_API() {
+  //ensure that we have access to Yahoo prior to using function
+  const yahooService = getYahooService_();
+  if (yahooService.hasAccess()) {
+    //nfl.p.30994
+    //411.p.6427
+    // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/player/411.p.6427/percent_started'; //get 'percent_started'.'value'
+    // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/player/411.p.6427/opponent'; // get 'opponent'
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/411.l.9755.t.8/roster;date=2022-04-28/players;out=percent_started,opponent';
+    response = UrlFetchApp.fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + yahooService.getAccessToken()
+      }
+      , "muteHttpExceptions": true
+    });
+    // the return type is xml, find all 'team_key' items in the response and add to array
+    Logger.log(response.getContentText());
+    const doc = XmlService.parse(response.getContentText());
+    const root = doc.getRootElement();
+
+  } else {
+    // Present authorization URL to user in the logs
+    const authorizationUrl = yahooService.getAuthorizationUrl();
+    Logger.log('Open the following URL and re-run the script: %s',
+      authorizationUrl);
+  }
+}
+
 function main() {
   //get all teams
-  const teams = getHockeyTeams();
+  const teams = getTeams();
   // for each team, get the current roster
   var rosters = [];
   teams.forEach((team) => {
@@ -9,7 +37,7 @@ function main() {
   Logger.log(rosters);
 }
 
-function getHockeyTeams() {
+function getTeams() {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
@@ -50,8 +78,8 @@ function getTeamRoster(team_key) {
     //Get currently assigned position for each player based on the 'roster' call
     const today = new Date();//defaults to today
     //TODO: change back to today's date. Testing using a specific date
-    // url = 'https://fantasysports.yahooapis.com/fantasy/v2/teams;team_keys=nhl.l.' + team_key + '/roster;date=' + dateToString(today);
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-27';
+    // url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=' + dateToString(today) + '/players;out=percent_started,opponent';
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-27/players;out=percent_started,opponent';
 
     response = UrlFetchApp.fetch(url, {
       headers: {
@@ -65,36 +93,23 @@ function getTeamRoster(team_key) {
     //put all players from the roster into an array
     const player_elements = getElementObjectsByTagName(root, "player");
 
-    // TODO: We could probably come up with a more in-depth way of doing this if we wanted
-    // Rank the players:
-    // Fetch all players, sorted by last month to determine ranking order
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/players;sort=AR;sort_type=lastmonth;player_keys=';
-    response = UrlFetchApp.fetch(url, {
-      headers: {
-        'Authorization': 'Bearer ' + yahooService.getAccessToken()
-      }
-      , "muteHttpExceptions": true
-    });
-    doc = XmlService.parse(response.getContentText());
-    root = doc.getRootElement();
-    const player_keys_sorted = getElementStringsByTagName(root, 'player_key');
-
     //loop through each player element and extract the relevant data to our new object
+    //TODO: I am hoping that is_starting will be populated for the goaltenders. If not, we will need to fetch from elsewhere. Once the season starts I may be able to determine if there is a specific subresource that will provide this info for the goalies that I can call.
     var players = [];
     const xmlNamespace = root.getNamespace();
     player_elements.forEach((e) => {
       const player_key = e.getChildText("player_key", xmlNamespace);
-      const player_rank = player_keys_sorted.indexOf(player_key);
       const player = {
         player_key: player_key,
         // player_name: getElementStringsByTagName(e, "full")[0],
-        nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
+        // nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
         eligible_positions: getElementStringsByTagName(e, "eligible_positions")[0].replace(/\s/g, ''),
         selected_position: e.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
         is_editable: e.getChildText("is_editable", xmlNamespace),
-        lineup_status: getElementStringsByTagName(e, "status_full")[0],
-        is_starting: getElementStringsByTagName(e, "is_starting")[0],
-        rank: player_rank
+        is_playing: e.getChildText("opponent", xmlNamespace) ? true : false,
+        injury_status: getElementStringsByTagName(e, "status_full")[0],
+        percent_started: e.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace),
+        is_starting: getElementStringsByTagName(e, "is_starting")[0]
       };
       players.push(player);
     });
@@ -107,6 +122,12 @@ function getTeamRoster(team_key) {
     Logger.log('Open the following URL and re-run the script: %s',
       authorizationUrl);
   }
+}
+
+function getTeamProperties(team_key) {
+// TODO: Get starting lineup positions, etc.
+// Do we need to do this? Or can our algorithm just loop through bench positions?
+// https://developer.yahoo.com/fantasysports/guide/#league-resource
 }
 
 /**
