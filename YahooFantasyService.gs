@@ -59,6 +59,7 @@ function getTeamRoster(team_key) {
       }
       , "muteHttpExceptions": true
     });
+    console.log(response.getContentText());
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
     //put all players from the roster into an array
@@ -74,7 +75,6 @@ function getTeamRoster(team_key) {
       }
       , "muteHttpExceptions": true
     });
-    console.log(response.getContentText());
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
     const player_keys_sorted = getElementStringsByTagName(root, 'player_key');
@@ -91,6 +91,7 @@ function getTeamRoster(team_key) {
         nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
         eligible_positions: getElementStringsByTagName(e, "eligible_positions")[0].replace(/\s/g, ''),
         selected_position: e.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
+        is_editable: e.getChildText("is_editable", xmlNamespace),
         lineup_status: getElementStringsByTagName(e, "status_full")[0],
         is_starting: getElementStringsByTagName(e, "is_starting")[0],
         rank: player_rank
