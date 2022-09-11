@@ -124,12 +124,6 @@ function getTeamRoster(team_key) {
   }
 }
 
-function getTeamProperties(team_key) {
-// TODO: Get starting lineup positions, etc.
-// Do we need to do this? Or can our algorithm just loop through bench positions?
-// https://developer.yahoo.com/fantasysports/guide/#league-resource
-}
-
 /**
 * Configures the service.
 */
