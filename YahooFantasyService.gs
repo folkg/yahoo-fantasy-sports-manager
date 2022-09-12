@@ -26,17 +26,6 @@ function test_API() {
   }
 }
 
-function main() {
-  //get all teams
-  const teams = getTeams();
-  // for each team, get the current roster
-  var rosters = [];
-  teams.forEach((team) => {
-    rosters.push(getTeamRoster(team));
-  });
-  Logger.log(rosters);
-}
-
 function getTeams() {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
@@ -79,7 +68,7 @@ function getTeamRoster(team_key) {
     const today = new Date();//defaults to today
     //TODO: change back to today's date. Testing using a specific date
     // url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=' + dateToString(today) + '/players;out=percent_started,opponent';
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-27/players;out=percent_started,opponent';
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-26/players;out=percent_started,opponent';
 
     response = UrlFetchApp.fetch(url, {
       headers: {
@@ -87,7 +76,6 @@ function getTeamRoster(team_key) {
       }
       , "muteHttpExceptions": true
     });
-    console.log(response.getContentText());
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
     //put all players from the roster into an array
@@ -95,6 +83,7 @@ function getTeamRoster(team_key) {
 
     //loop through each player element and extract the relevant data to our new object
     //TODO: I am hoping that is_starting will be populated for the goaltenders. If not, we will need to fetch from elsewhere. Once the season starts I may be able to determine if there is a specific subresource that will provide this info for the goalies that I can call.
+    //TODO: Add projected points for use in points only leagues (ie. football)
     var players = [];
     const xmlNamespace = root.getNamespace();
     player_elements.forEach((e) => {
@@ -108,7 +97,7 @@ function getTeamRoster(team_key) {
         is_editable: e.getChildText("is_editable", xmlNamespace),
         is_playing: e.getChildText("opponent", xmlNamespace) ? true : false,
         injury_status: getElementStringsByTagName(e, "status_full")[0],
-        percent_started: e.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace),
+        percent_started: parseInt(e.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace)),
         is_starting: getElementStringsByTagName(e, "is_starting")[0]
       };
       players.push(player);
@@ -122,6 +111,52 @@ function getTeamRoster(team_key) {
     Logger.log('Open the following URL and re-run the script: %s',
       authorizationUrl);
   }
+}
+
+function modifyRoster(team_key, new_player_positions) {
+  const today = new Date();//defaults to today
+
+  // Build the input XML to move players to new positions
+  const startXML = '<fantasy_content>' +
+    '<roster>' +
+    '<coverage_type>date</coverage_type>' +
+    '<date>' + dateToString(today) + '</date>' +
+    '<players>';
+  const endXML = '</players>' +
+    '</roster>' +
+    '</fantasy_content>';
+
+  // Reduce over the new_player_positions array passed in to create all player modification entries
+  const bodyXML = new_player_positions.reduce((str, player) => {
+    const entry = '<player>' +
+      '<player_key>' + player.player_key + '</player_key>' +
+      '<position>' + player.position + '</position>' +
+      '</player>';
+    return str + entry;
+  });
+  const modifyRosterXML = startXML + bodyXML + endXML;
+
+  Logger.log('%s', modifyRosterXML);
+
+  //Add the options for the PUT
+  const options =
+  {
+    "contentType": "application/xml; charset=utf-8",
+    "method": "put",
+    "payload": modifyRosterXML,
+    headers: {
+      'Authorization': 'Bearer ' + yahooService.getAccessToken()
+    },
+    "muteHttpExceptions": true
+  };
+
+  //PUT the roster modification
+  const response = UrlFetchApp.fetch('https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster', options);
+  Logger.log('%s', response.getContentText());
+
+  //TODO: Do we just want to return status? Or full response good?
+  return response;
+
 }
 
 /**
@@ -138,8 +173,8 @@ function getYahooService_() {
     .setTokenUrl('https://api.login.yahoo.com/oauth2/get_token')
 
     // Set the client ID and secret
-    .setClientId(getClientId())
-    .setClientSecret(getClientSecret())
+    .setClientId(getClientId_())
+    .setClientSecret(getClientSecret_())
 
     // Set the name of the callback function in the script referenced
     // above that should be invoked to complete the OAuth flow.
@@ -149,7 +184,7 @@ function getYahooService_() {
     .setPropertyStore(PropertiesService.getUserProperties())
 }
 
-function setClientIdSecret() {
+function setClientIdSecret_() {
   // NOTE: Run this function once before anything else to set your Yahoo client ID and client secret in the property store
   // Replace "TBD" with your Yahoo client ID and client secret
   var clientId = "TBD";
@@ -159,17 +194,17 @@ function setClientIdSecret() {
   props.setProperty('Client Secret', clientSecret);
 }
 
-function getClientId() {
+function getClientId_() {
   var props = PropertiesService.getScriptProperties();
   return props.getProperty('Client ID');
 }
 
-function getClientSecret() {
+function getClientSecret_() {
   var props = PropertiesService.getScriptProperties();
   return props.getProperty('Client Secret');
 }
 
-function authCallback(request) {
+function authCallback_(request) {
   var yahooService = getYahooService_();
   var isAuthorized = yahooService.handleCallback(request);
   if (isAuthorized) {
