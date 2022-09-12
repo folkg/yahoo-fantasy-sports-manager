@@ -34,6 +34,8 @@ function getTeams() {
     //Fetch a list of all hockey teams registered to the user
     //const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nhl/teams';
     //TODO: temporarily using 411 for 2021 NHL season. Change simply to 'nhl' as above to keep on current season always
+    //TODO: how do we include all sports (ie.football)? Probably just remove the games;game_keys
+    //TODO: Fetch info on the team/league itself - is it a points only league? We would need this for the getTeamRoster as well. Pass a team object around instead of the team_key.
     const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=411/teams';
     response = UrlFetchApp.fetch(url, {
       headers: {
@@ -55,7 +57,7 @@ function getTeams() {
     Logger.log('Open the following URL and re-run the script: %s',
       authorizationUrl);
   }
-}
+} //end getTeams()
 
 function getTeamRoster(team_key) {
   //ensure that we have access to Yahoo prior to using function
@@ -67,6 +69,7 @@ function getTeamRoster(team_key) {
     //Get currently assigned position for each player based on the 'roster' call
     const today = new Date();//defaults to today
     //TODO: change back to today's date. Testing using a specific date
+    //TODO: How do we get the projected point totals if this is a points only league? Add a new out='' prop to the request, probably
     // url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=' + dateToString(today) + '/players;out=percent_started,opponent';
     url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-26/players;out=percent_started,opponent';
 
@@ -94,9 +97,9 @@ function getTeamRoster(team_key) {
         // nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
         eligible_positions: getElementStringsByTagName(e, "eligible_positions")[0].replace(/\s/g, ''),
         selected_position: e.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
-        is_editable: e.getChildText("is_editable", xmlNamespace),
+        is_editable: e.getChildText("is_editable", xmlNamespace) === "0" ? false : true,
         is_playing: e.getChildText("opponent", xmlNamespace) ? true : false,
-        injury_status: getElementStringsByTagName(e, "status_full")[0],
+        injury_status: getElementStringsByTagName(e, "status_full")[0] || "Healthy",
         percent_started: parseInt(e.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace)),
         is_starting: getElementStringsByTagName(e, "is_starting")[0]
       };
@@ -111,53 +114,60 @@ function getTeamRoster(team_key) {
     Logger.log('Open the following URL and re-run the script: %s',
       authorizationUrl);
   }
-}
+} //end getTeamRoster()
 
 function modifyRoster(team_key, new_player_positions) {
-  const today = new Date();//defaults to today
+  //ensure that we have access to Yahoo prior to using function
+  const yahooService = getYahooService_();
+  if (yahooService.hasAccess()) {
+    const today = new Date();//defaults to today
 
-  // Build the input XML to move players to new positions
-  const startXML = '<fantasy_content>' +
-    '<roster>' +
-    '<coverage_type>date</coverage_type>' +
-    '<date>' + dateToString(today) + '</date>' +
-    '<players>';
-  const endXML = '</players>' +
-    '</roster>' +
-    '</fantasy_content>';
+    // Build the input XML to move players to new positions
+    const startXML = '<fantasy_content>' +
+      '<roster>' +
+      '<coverage_type>date</coverage_type>' +
+      '<date>' + dateToString(today) + '</date>' +
+      '<players>';
+    const endXML = '</players>' +
+      '</roster>' +
+      '</fantasy_content>';
 
-  // Reduce over the new_player_positions array passed in to create all player modification entries
-  const bodyXML = new_player_positions.reduce((str, player) => {
-    const entry = '<player>' +
-      '<player_key>' + player.player_key + '</player_key>' +
-      '<position>' + player.position + '</position>' +
-      '</player>';
-    return str + entry;
-  });
-  const modifyRosterXML = startXML + bodyXML + endXML;
+    // Reduce over the new_player_positions array passed in to create all player modification entries
+    const bodyXML = new_player_positions.reduce((str, player) => {
+      const entry = '<player>' +
+        '<player_key>' + player.player_key + '</player_key>' +
+        '<position>' + player.position + '</position>' +
+        '</player>';
+      return str + entry;
+    },"");
+    const modifyRosterXML = startXML + bodyXML + endXML;
 
-  Logger.log('%s', modifyRosterXML);
+    Logger.log('%s', modifyRosterXML);
 
-  //Add the options for the PUT
-  const options =
-  {
-    "contentType": "application/xml; charset=utf-8",
-    "method": "put",
-    "payload": modifyRosterXML,
-    headers: {
-      'Authorization': 'Bearer ' + yahooService.getAccessToken()
-    },
-    "muteHttpExceptions": true
-  };
+    //Add the options for the PUT
+    const options =
+    {
+      "contentType": "application/xml; charset=utf-8",
+      "method": "put",
+      "payload": modifyRosterXML,
+      headers: {
+        'Authorization': 'Bearer ' + yahooService.getAccessToken()
+      },
+      "muteHttpExceptions": true
+    };
 
-  //PUT the roster modification
-  const response = UrlFetchApp.fetch('https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster', options);
-  Logger.log('%s', response.getContentText());
+    //PUT the roster modification
+    const response = UrlFetchApp.fetch('https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster', options);
+    Logger.log('%s', response.getContentText());
 
-  //TODO: Do we just want to return status? Or full response good?
-  return response;
-
-}
+    return response.getContentText();
+  } else {
+    // Present authorization URL to user in the logs
+    const authorizationUrl = yahooService.getAuthorizationUrl();
+    Logger.log('Open the following URL and re-run the script: %s',
+      authorizationUrl);
+  }
+} //end modifyRoster()
 
 /**
 * Configures the service.
