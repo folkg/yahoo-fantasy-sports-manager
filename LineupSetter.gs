@@ -16,30 +16,6 @@ function main() {
 }
 
 function editStartingLineup(team_key, roster) {
-  /* Algorithm:
-
-  1. Add all benched players to stack 'benched_players' if:
-   - They are playing today
-   - Their status is not injured
-   - is_editable
-  2. Sort benched_players with lowest started_percentage at top of stack
-  
-  3. Add all rostered players to array 'rostered_players' if is_editable
-  4. Sort rostered_players from lowest started_percentage at front of array
-
-  5. While 'benched_players:
-   - set worst_rank to benched_player
-   - loop through each rostered_player
-     -> if benched_player and rostered_player have same position, compare rostered_player rank to worst_rank.
-       - If lower, worst_rank = rostered_player, continue loop
-       - If higher, break loop. bench_player is worst. Pop from stack.
-   - if worst_rank is less thank benched_player, swap players.
-     - Add swapped player to top of benched_players stack. Repeat from top of loop.
-     - Add other swapped player to rostered_players array. Re-sort the array.
-  
-  6. Make all swaps on Yahoo. Q: Do we want to do this as we go along?
-  */
-
   // Loop through all players and add them to either the benched or rostered list if required.
   // We don't want to be swapping players if they are not editable, if they are hurt, or if they are in an IR spot
   var benched = [];
@@ -83,23 +59,23 @@ function editStartingLineup(team_key, roster) {
 
     // Loop through each roster player and find the lowest eligible player to see if they should be swapped for the bench player
     for (const rosterPlayer of rostered) {
-      // const rosterPlayer = rostered[i];
-      //TODO: Check the percent started first, doesn't matter if the position matches. If it doesn't beat even the wrong position, it won't be better than the right position.
-      if (benchPlayer.eligible_positions.includes(rosterPlayer.selected_position)) {
-        // If the rosterPlayer's current position is included in the list of the benchPlayer's eligible positions
-        if (compareByPercentStarted(benchPlayer, rosterPlayer) > 0) {
-          //flag the current rosterPlayer for swapping and break out of the loop
+      if (compareByPercentStarted(benchPlayer, rosterPlayer) > 0) {
+        // if the benchPlayer has a higher score than the rosterPlayer
+        if (benchPlayer.eligible_positions.includes(rosterPlayer.selected_position)) {
+          // If the rosterPlayer's current position is included in the list of the benchPlayer's eligible positions
           swapPlayer = rosterPlayer;
-        }
-        // Else benchPlayer has the lowest score, they belong on the bench!  
+          break; //Break the for/of loop
+        }        
+      } else {
+        // benchPlayer has the lowest score, they belong on the bench!  
         break; //Break the for/of loop
       }
     } //end for loop
 
     if (swapPlayer != null) {
       // Update the selected position for both swapped players
-      benchPlayer.selected_position = swapPlayer.selected_position
-      swapPlayer.selected_position = "BN"
+      benchPlayer.selected_position = swapPlayer.selected_position;
+      swapPlayer.selected_position = "BN";
       // Add both benchPlayer and swapPlayer to the new_player_positions dictionary that will eventually be swapped
       // A player could potentially be moved around a few times, so we will use a dictionary to keep only their final position
       new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
@@ -118,7 +94,7 @@ function editStartingLineup(team_key, roster) {
   } //end while
 
   // Send the new_player_positions array to Yahoo to make the changes
-  if (new_player_positions.length > 0) {
+  if (Object.keys(new_player_positions).length > 0) {
     const response = modifyRoster(team_key, new_player_positions);
     Logger.log(response);
   }
