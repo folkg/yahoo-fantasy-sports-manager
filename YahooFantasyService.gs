@@ -132,14 +132,17 @@ function modifyRoster(team_key, new_player_positions) {
       '</roster>' +
       '</fantasy_content>';
 
-    // Reduce over the new_player_positions array passed in to create all player modification entries
-    const bodyXML = new_player_positions.reduce((str, player) => {
-      const entry = '<player>' +
-        '<player_key>' + player.player_key + '</player_key>' +
-        '<position>' + player.position + '</position>' +
+    // Loop over the new_player_positions array passed in to create all player modification entries
+    var bodyXML = "";
+    for (const player_key in new_player_positions) {
+      const position = new_player_positions[player_key];
+
+      bodyXML += '<player>' +
+        '<player_key>' + player_key + '</player_key>' +
+        '<position>' + position + '</position>' +
         '</player>';
-      return str + entry;
-    },"");
+    }
+
     const modifyRosterXML = startXML + bodyXML + endXML;
 
     Logger.log('%s', modifyRosterXML);
@@ -158,8 +161,6 @@ function modifyRoster(team_key, new_player_positions) {
 
     //PUT the roster modification
     const response = UrlFetchApp.fetch('https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster', options);
-    Logger.log('%s', response.getContentText());
-
     return response.getContentText();
   } else {
     // Present authorization URL to user in the logs
