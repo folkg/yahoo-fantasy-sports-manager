@@ -46,60 +46,92 @@ function editStartingLineup(team_key, roster) {
     return a.percent_started - b.percent_started;
   };
   // 'benched' will be a stack with the lowest percent_started on top
+  //TODO: Do we need to sort the bench stack? I don't think so.
   benched.sort(compareByPercentStarted).reverse();
   // 'rostered' will be a normal array with the lowest percent_started at the beginning
   rostered.sort(compareByPercentStarted);
 
-  // Loop over all benched players with games and swap into the active roster if necessary
-  const new_player_positions = {};
+  // Define the function that attempts to move a bench player onto the active roster
+  const swapPlayerToActiveRoster = (benchPlayer) => {
+    for (var i = 0; i < rostered.length; i++) {
+      const rosterPlayer = rostered[i];
+      if (benchPlayer.eligible_positions.includes(rosterPlayer.selected_position)) {
+        // If the rosterPlayer's current position is included in the list of the benchPlayer's eligible positions.
+        // We are only looking closer at players we can actually swap with.
+        if (compareByPercentStarted(benchPlayer, rosterPlayer) > 0) {
+          // If the benchPlayer has a higher score than the rosterPlayer. Perform a 2-way swap.
+          // Update the selected position for both swapped players
+          benchPlayer.selected_position = rosterPlayer.selected_position;
+          rosterPlayer.selected_position = "BN";
+
+          // Add both benchPlayer and rosterPlayer to the new_player_positions dictionary that will be swapped
+          new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
+          new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
+
+          // If rosterPlayer plays a game today, add it to top of the benched stack for the next while loop iteration.
+          // rosterPlayer could still potentially displace a different player
+          if (rosterPlayer.is_playing)
+            benched.push(rosterPlayer);
+
+          // Add the benchPlayer to the rostered array in place of rosterPlayer and re-sort it.     
+          const swapIndex = rostered.indexOf(rosterPlayer);
+          rostered[swapIndex] = benchPlayer;
+          rostered.sort(compareByPercentStarted);
+          // We are finished with this benchPlayer, they have been added to the active roster.
+          return;
+        } else {
+          // If the benchPlayer has a lower score than the rosterPlayer
+          // We will see if there are any three-way swaps available to accomodate benchPlayer
+          // Compare the rosterPlayer with each of the players with a lower score than benchPlayer (i.e. previously checked players)
+          for (var j = 0; j < i; j++) {
+            const thirdPlayer = rostered[j];
+            if (rosterPlayer.eligible_positions.includes(thirdPlayer.selected_position)) {
+              // If rosterPlayer can be swapped with any of the earlier players, Perform a 3-way swap.              
+              benchPlayer.selected_position = rosterPlayer.selected_position;
+              rosterPlayer.selected_position = thirdPlayer.selected_position;
+              thirdPlayer.selected_position = "BN";
+
+              // Add all players the new_player_positions dictionary that will be swapped
+              new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
+              new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
+              new_player_positions[thirdPlayer.player_key] = thirdPlayer.selected_position;
+
+              if (thirdPlayer.is_playing)
+                benched.push(thirdPlayer);
+
+              // Add the benchPlayer to the rostered array in place of thirdPlayer and re-sort it.     
+              const swapIndex = rostered.indexOf(thirdPlayer);
+              rostered[swapIndex] = benchPlayer;
+              rostered.sort(compareByPercentStarted);
+
+              // We are finished with this benchPlayer, they have been added to the active roster.
+              return;
+            } // end if possible three-way swap
+          } // end for j, loop through all lower score players
+        } // end if/else compare score
+      } // end if players are of compatible positions. Move on to check next compatible roster player.
+    } // end for i loop
+  } // end swapPlayerIntoRoster()
+
+  // Define a dictionary to hold the new positions of all moved players
+  var new_player_positions = {};
+  // Loop over all benched players with games and swap into the active roster if able
   while (benched.length > 0) {
-    // pop the benchPlayer off the benched stack, it will either be moved to the roster, or it belongs on the bench
+    // Pop the benchPlayer off the benched stack, it will either be moved to the roster, or it belongs on the bench and can be ignored.
     const benchPlayer = benched.pop();
-    var swapPlayer = null;
 
-    // Loop through each roster player and find the lowest eligible player to see if they should be swapped for the bench player
-    for (const rosterPlayer of rostered) {
-      if (compareByPercentStarted(benchPlayer, rosterPlayer) > 0) {
-        // if the benchPlayer has a higher score than the rosterPlayer
-        if (benchPlayer.eligible_positions.includes(rosterPlayer.selected_position)) {
-          // If the rosterPlayer's current position is included in the list of the benchPlayer's eligible positions
-          swapPlayer = rosterPlayer;
-          break; //Break the for/of loop
-        }        
-      } else {
-        // benchPlayer has the lowest score, they belong on the bench!  
-        break; //Break the for/of loop
-      }
-    } //end for loop
-
-    if (swapPlayer != null) {
-      // Update the selected position for both swapped players
-      benchPlayer.selected_position = swapPlayer.selected_position;
-      swapPlayer.selected_position = "BN";
-      // Add both benchPlayer and swapPlayer to the new_player_positions dictionary that will eventually be swapped
-      // A player could potentially be moved around a few times, so we will use a dictionary to keep only their final position
-      new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
-      new_player_positions[swapPlayer.player_key] = swapPlayer.selected_position;
-
-      // If swapPlayer plays a game today, add it to top of the benched stack for the next while loop iteration.
-      // swapPlayer could still potentially displace a different player
-      if (swapPlayer.is_playing)
-        benched.push(swapPlayer);
-
-      // Add the benchPlayer to the rostered array in place of swapPlayer and re-sort it.     
-      const swapIndex = rostered.indexOf(swapPlayer);
-      rostered[swapIndex] = benchPlayer;
-      rostered.sort(compareByPercentStarted);
+    // Only attempt to swap player if it is better than at least one player on the active roster. Otherwise, just discard and move to the next.
+    if (compareByPercentStarted(benchPlayer, rostered[0]) > 0) {
+      swapPlayerToActiveRoster(benchPlayer);
     }
   } //end while
 
-  // Send the new_player_positions array to Yahoo to make the changes
+  // Send the new_player_positions dictionary to Yahoo to make the changes official
   if (Object.keys(new_player_positions).length > 0) {
     const response = modifyRoster(team_key, new_player_positions);
     Logger.log(response);
   }
 }
-
 //TODO: Is this function even required? We might be able to get this data from Yahoo itself from the API
 function getTodaysTeamsGoalies() {
   var goalies = [];
