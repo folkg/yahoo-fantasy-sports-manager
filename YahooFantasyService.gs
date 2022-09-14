@@ -6,7 +6,11 @@ function test_API() {
     //411.p.6427
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/player/411.p.6427/percent_started'; //get 'percent_started'.'value'
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/player/411.p.6427/opponent'; // get 'opponent'
-    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/411.l.9755.t.8/roster;date=2022-04-28/players;out=percent_started,opponent';
+    // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/411.l.9755.t.8/roster;date=2022-04-28/players;out=percent_started,opponent,starting_status';
+    // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/411.l.9755.t.8/players;position=G;out=percent_started,opponent,starting_status';
+    // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/leagues';
+    // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/teams';
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/414.l.240994.t.12/roster/players;out=percent_started,opponent';
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
@@ -24,6 +28,12 @@ function test_API() {
     Logger.log('Open the following URL and re-run the script: %s',
       authorizationUrl);
   }
+}
+
+function test_getRoster() {
+  // getTeamRoster("411.l.9755.t.8");
+  getTeamRoster("414.l.240994.t.12");
+  Logger.log("test");
 }
 
 function getTeams() {
@@ -70,8 +80,8 @@ function getTeamRoster(team_key) {
     const today = new Date();//defaults to today
     //TODO: change back to today's date. Testing using a specific date
     //TODO: How do we get the projected point totals if this is a points only league? Add a new out='' prop to the request, probably
-    // url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=' + dateToString(today) + '/players;out=percent_started,opponent';
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-26/players;out=percent_started,opponent';
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-26/players;out=percent_started,opponent,starting_status';
+    // url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster/players;out=percent_started,opponent,starting_status';
 
     response = UrlFetchApp.fetch(url, {
       headers: {
@@ -81,33 +91,35 @@ function getTeamRoster(team_key) {
     });
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
-    //put all players from the roster into an array
-    const player_elements = getElementObjectsByTagName(root, "player");
+    const xmlNamespace = root.getNamespace();
+    const roster_element = root.getChild("team", xmlNamespace).getChild("roster", xmlNamespace);
+    // Extract information from the XML to be returned from the function
+    const coverage_type = roster_element.getChildText("coverage_type", xmlNamespace);
+    const coverage_period = roster_element.getChildText(coverage_type, xmlNamespace);
+    const player_elements = roster_element.getChild("players", xmlNamespace).getChildren("player", xmlNamespace);
 
     //loop through each player element and extract the relevant data to our new object
     //TODO: I am hoping that is_starting will be populated for the goaltenders. If not, we will need to fetch from elsewhere. Once the season starts I may be able to determine if there is a specific subresource that will provide this info for the goalies that I can call.
     //TODO: Add projected points for use in points only leagues (ie. football)
     var players = [];
-    const xmlNamespace = root.getNamespace();
     player_elements.forEach((e) => {
-      const player_key = e.getChildText("player_key", xmlNamespace);
       const player = {
-        player_key: player_key,
+        player_key: e.getChildText("player_key", xmlNamespace),
         // player_name: getElementStringsByTagName(e, "full")[0],
         // nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
         eligible_positions: getElementStringsByTagName(e, "eligible_positions")[0].replace(/\s/g, ''),
         selected_position: e.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
-        is_editable: e.getChildText("is_editable", xmlNamespace) === "0" ? false : true,
+        is_editable: e.getChildText("is_editable", xmlNamespace) === "1" ? true : false,
         is_playing: e.getChildText("opponent", xmlNamespace) ? true : false,
-        injury_status: getElementStringsByTagName(e, "status_full")[0] || "Healthy",
+        injury_status: e.getChildText("status_full", xmlNamespace) || "Healthy",
         percent_started: parseInt(e.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace)),
-        is_starting: getElementStringsByTagName(e, "is_starting")[0]
+        is_starting: getElementStringsByTagName(e, "is_starting")[0] || "N/A",
       };
       players.push(player);
     });
 
     //return the values required to the set lineup function
-    return players;
+    return { team_key, players, coverage_type, coverage_period };
   } else {
     // Present authorization URL to user in the logs
     const authorizationUrl = yahooService.getAuthorizationUrl();
@@ -116,17 +128,21 @@ function getTeamRoster(team_key) {
   }
 } //end getTeamRoster()
 
-function modifyRoster(team_key, new_player_positions) {
+function modifyRoster(team_key, coverage_type, coverage_period, new_player_positions) {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
     const today = new Date();//defaults to today
 
+    //TODO: For weekly leagues
+    // <coverage_type>week</coverage_type>
+    // <week>13</week>
+
     // Build the input XML to move players to new positions
     const startXML = '<fantasy_content>' +
       '<roster>' +
-      '<coverage_type>date</coverage_type>' +
-      '<date>' + dateToString(today) + '</date>' +
+      '<coverage_type>' + coverage_type + '</coverage_type>' +
+      '<' + coverage_type + '>' + coverage_period + '</' + coverage_type + '>' +
       '<players>';
     const endXML = '</players>' +
       '</roster>' +

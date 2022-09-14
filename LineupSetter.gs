@@ -12,15 +12,17 @@ function main() {
   rosters.push(getTeamRoster(teams[1]));
 
   // Edit the starting lineup for one roster
-  editStartingLineup(teams[1], rosters[0]);
+  editStartingLineup(rosters[0]);
 }
 
-function editStartingLineup(team_key, roster) {
+function editStartingLineup(teamRoster) {
+  const {team_key, players, coverage_type, coverage_period} = teamRoster;
+
   // Loop through all players and add them to either the benched or rostered list if required.
   // We don't want to be swapping players if they are not editable, if they are hurt, or if they are in an IR spot
   var benched = [];
   var rostered = [];
-  roster.forEach(player => {
+  players.forEach(player => {
     //TODO: Negate the is_editable for testing
     if (!player.is_editable) {
       // TODO: check all statuses. For sure we want to factor Out, DTD. Do we have 'probable'? Maybe don't exclude that one.
@@ -45,10 +47,8 @@ function editStartingLineup(team_key, roster) {
   const compareByPercentStarted = (a, b) => {
     return a.percent_started - b.percent_started;
   };
-  // 'benched' will be a stack with the lowest percent_started on top
-  //TODO: Do we need to sort the bench stack? I don't think so.
-  benched.sort(compareByPercentStarted).reverse();
-  // 'rostered' will be a normal array with the lowest percent_started at the beginning
+
+  // 'rostered' will be sorted with the lowest percent_started at the beginning, so the worst palyer will always be checked first
   rostered.sort(compareByPercentStarted);
 
   // Define the function that attempts to move a bench player onto the active roster
@@ -128,7 +128,7 @@ function editStartingLineup(team_key, roster) {
 
   // Send the new_player_positions dictionary to Yahoo to make the changes official
   if (Object.keys(new_player_positions).length > 0) {
-    const response = modifyRoster(team_key, new_player_positions);
+    const response = modifyRoster(team_key, coverage_type, coverage_period, new_player_positions);
     Logger.log(response);
   }
 }
