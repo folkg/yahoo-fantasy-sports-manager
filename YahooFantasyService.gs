@@ -37,17 +37,18 @@ function test_getRoster() {
   Logger.log("test");
 }
 
-function getTeams() {
+function getTeams(sport) {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
 
-    //Fetch a list of all hockey teams registered to the user
-    //const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nhl/teams';
-    //TODO: temporarily using 411 for 2021 NHL season. Change simply to 'nhl' as above to keep on current season always
-    //TODO: how do we include all sports (ie.football)? Probably just remove the games;game_keys
-    //TODO: Fetch info on the team/league itself - is it a points only league? We would need this for the getTeamRoster as well. Pass a team object around instead of the team_key.
-    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=411/teams';
+    //Fetch a list of all teams registered to the user for the sport passed in. Will fetch all sports if no argument given.
+    var game_keys = "";
+    if (sport) {
+      game_keys = ";game_keys=" + sport;
+    }
+
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games' + game_keys + '/teams';
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()

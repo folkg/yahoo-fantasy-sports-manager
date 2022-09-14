@@ -1,18 +1,22 @@
-function main() {
-  //get all teams
-  const teams = getTeams();
-  // for each team, get the current roster
-  //TODO: teams will eventually be a team object that includes whether it's a points only league
-  var rosters = [];
-  // teams.forEach((team) => {
-  //   rosters.push(getTeamRoster(team));
-  // });
-  // Temporarily just fetch one roster for testing
-  Logger.log(teams[1]);
-  // rosters.push(getTeamRoster(teams[1])); 414.l.240994.t.12
-  rosters.push(getTeamRoster("414.l.240994.t.12"));
-  // Edit the starting lineup for one roster
-  editStartingLineup(rosters[0]);
+function setHockeyLineups() {
+  const teams = getTeams("nhl");
+  Logger.log("Settings Lineups for the following teams: " + teams);
+  teams.forEach((team_key) => {
+    const roster = getTeamRoster(team_key);
+    editStartingLineup(roster);
+    Logger.log("Lineup set for team " + team_key);
+  });
+}
+
+function setFootballLineups() {
+  const teams = getTeams("nfl");
+  Logger.log(teams);
+  Logger.log("Settings Lineups for the following teams: " + teams);
+  teams.forEach((team_key) => {
+    const roster = getTeamRoster(team_key);
+    editStartingLineup(roster);
+    Logger.log("Lineup set for team " + team_key);
+  });
 }
 
 function editStartingLineup(teamRoster) {
@@ -79,7 +83,7 @@ function editStartingLineup(teamRoster) {
           const swapIndex = rostered.indexOf(rosterPlayer);
           rostered[swapIndex] = benchPlayer;
           rostered.sort(compareByPercentStarted);
-          
+
           // We are finished with this benchPlayer, they have been added to the active roster.
           return;
         } else {
