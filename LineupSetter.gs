@@ -9,22 +9,21 @@ function main() {
   // });
   // Temporarily just fetch one roster for testing
   Logger.log(teams[1]);
-  rosters.push(getTeamRoster(teams[1]));
-
+  // rosters.push(getTeamRoster(teams[1])); 414.l.240994.t.12
+  rosters.push(getTeamRoster("414.l.240994.t.12"));
   // Edit the starting lineup for one roster
   editStartingLineup(rosters[0]);
 }
 
 function editStartingLineup(teamRoster) {
-  const {team_key, players, coverage_type, coverage_period} = teamRoster;
+  const { team_key, players, coverage_type, coverage_period } = teamRoster;
 
   // Loop through all players and add them to either the benched or rostered list if required.
   // We don't want to be swapping players if they are not editable, if they are hurt, or if they are in an IR spot
   var benched = [];
   var rostered = [];
   players.forEach(player => {
-    //TODO: Negate the is_editable for testing
-    if (!player.is_editable) {
+    if (player.is_editable) {
       // TODO: check all statuses. For sure we want to factor Out, DTD. Do we have 'probable'? Maybe don't exclude that one.
       if (player.selected_position === "BN" && player.is_playing && player.injury_status === "Healthy") {
         benched.push(player);
@@ -60,23 +59,27 @@ function editStartingLineup(teamRoster) {
         // We are only looking closer at players we can actually swap with.
         if (compareByPercentStarted(benchPlayer, rosterPlayer) > 0) {
           // If the benchPlayer has a higher score than the rosterPlayer. Perform a 2-way swap.
+
           // Update the selected position for both swapped players
           benchPlayer.selected_position = rosterPlayer.selected_position;
           rosterPlayer.selected_position = "BN";
 
-          // Add both benchPlayer and rosterPlayer to the new_player_positions dictionary that will be swapped
+          // Add to the new_player_positions dictionary
           new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
-          new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
-
-          // If rosterPlayer plays a game today, add it to top of the benched stack for the next while loop iteration.
-          // rosterPlayer could still potentially displace a different player
-          if (rosterPlayer.is_playing)
-            benched.push(rosterPlayer);
+          if (rosterPlayer.player_key !== null) {
+            // Only add the rosterPlayer to dictionary if it was not a dummy empty roster spot
+            new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
+            // If rosterPlayer plays a game today, add it to top of the benched stack for the next while loop iteration.
+            // rosterPlayer could still potentially displace a different player
+            if (rosterPlayer.is_playing)
+              benched.push(rosterPlayer);
+          }
 
           // Add the benchPlayer to the rostered array in place of rosterPlayer and re-sort it.     
           const swapIndex = rostered.indexOf(rosterPlayer);
           rostered[swapIndex] = benchPlayer;
           rostered.sort(compareByPercentStarted);
+          
           // We are finished with this benchPlayer, they have been added to the active roster.
           return;
         } else {
@@ -94,10 +97,12 @@ function editStartingLineup(teamRoster) {
               // Add all players the new_player_positions dictionary that will be swapped
               new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
               new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
-              new_player_positions[thirdPlayer.player_key] = thirdPlayer.selected_position;
 
-              if (thirdPlayer.is_playing)
-                benched.push(thirdPlayer);
+              if (thirdPlayer.player_key !== null) {
+                new_player_positions[thirdPlayer.player_key] = thirdPlayer.selected_position;
+                if (thirdPlayer.is_playing)
+                  benched.push(thirdPlayer);
+              }
 
               // Add the benchPlayer to the rostered array in place of thirdPlayer and re-sort it.     
               const swapIndex = rostered.indexOf(thirdPlayer);
@@ -108,6 +113,8 @@ function editStartingLineup(teamRoster) {
               return;
             } // end if possible three-way swap
           } // end for j, loop through all lower score players
+          // All worse players have been checked. No swap has been made, return from the function.
+          return;
         } // end if/else compare score
       } // end if players are of compatible positions. Move on to check next compatible roster player.
     } // end for i loop

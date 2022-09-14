@@ -6,6 +6,11 @@
         "userSymbol": "OAuth2",
         "version": "41",
         "libraryId": "1B7FSrk5Zi6L1rSxxTDgDEUsPzlukDsi4KGuTMorsTQHhGBzBkMun4iDF"
+      },
+      {
+        "userSymbol": "BetterLog",
+        "version": "27",
+        "libraryId": "1DSyxam1ceq72bMHsE6aOVeOl94X78WCwiYPytKi7chlg4x5GqiNXSw0l"
       }
     ]
   },
