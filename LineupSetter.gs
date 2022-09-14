@@ -28,16 +28,16 @@ function editStartingLineup(teamRoster) {
   var rostered = [];
   players.forEach(player => {
     if (player.is_editable) {
-      // TODO: check all statuses. For sure we want to factor Out, DTD. Do we have 'probable'? Maybe don't exclude that one.
-      if (player.selected_position === "BN" && player.is_playing && player.injury_status === "Healthy") {
+      // Player statuses to be treated as healthy
+      const healthyStatusList = ["Healthy","Questionable", "Probable"];
+      if (player.selected_position === "BN" && player.is_playing && healthyStatusList.includes(player.injury_status)) {
         benched.push(player);
-      } else if (player.selected_position !== "BN" && player.selected_position !== "IR" && player.selected_position !== "IR+") {
+      } else if (!["IR", "IR+", "BN"].includes(player.selected_position)) {
         // Artificially set the percent_started to 0 if the player is not playing to de-prioritize them in the lineup
         if (!player.is_playing)
           player.percent_started = 0;
         // Artificially factor the percent_started by 0.01 if the player is hurt. Priority will be above players not playing at all, but below others.
-        // TODO: check all statuses. For sure we want to factor Out, DTD. Do we have 'probable'? Maybe don't factor that one.
-        if (player.injury_status !== "Healthy")
+        if (!healthyStatusList.includes(player.injury_status))
           player.percent_started = player.percent_started * 0.01;
 
         rostered.push(player);

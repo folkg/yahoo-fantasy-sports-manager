@@ -99,7 +99,6 @@ function getTeamRoster(team_key) {
     });
 
     //TODO: How do we get the projected point totals if this is a points only league? Add a new out='' prop to the request, probably
-    // url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster;date=2022-04-26/players;out=percent_started,opponent,starting_status';
     url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster/players;out=percent_started,opponent,starting_status';
 
     response = UrlFetchApp.fetch(url, {
@@ -118,11 +117,10 @@ function getTeamRoster(team_key) {
     const coverage_period = roster_element.getChildText(coverage_type, xmlNamespace);
     const player_elements = roster_element.getChild("players", xmlNamespace).getChildren("player", xmlNamespace);
 
-    //loop through each player element and extract the relevant data to our new object
-
     //TODO: I am hoping that is_starting will be populated for the goaltenders. If not, we will need to fetch from elsewhere. Once the season starts I may be able to determine if there is a specific subresource that will provide this info for the goalies that I can call.
     //TODO: Add projected points for use in points only leagues (ie. football)
 
+    //loop through each player element and extract the relevant data to our new object
     var players = [];
     player_elements.forEach((element) => {
       const player = {
@@ -180,12 +178,7 @@ function modifyRoster(team_key, coverage_type, coverage_period, new_player_posit
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
-    const today = new Date();//defaults to today
-
-    //TODO: For weekly leagues
-    // <coverage_type>week</coverage_type>
-    // <week>13</week>
-
+    
     // Build the input XML to move players to new positions
     const startXML = '<fantasy_content>' +
       '<roster>' +
