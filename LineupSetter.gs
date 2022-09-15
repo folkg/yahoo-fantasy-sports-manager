@@ -11,7 +11,7 @@ function setHockeyLineups() {
 }
 
 function setFootballLineups() {
-  // if (footballScriptRunTimes()) {
+  if (footballScriptRunTimes()) {
     const teams = getTeams("nfl");
     Logger.log(teams);
     Logger.log("Settings Lineups for the following teams: " + teams);
@@ -20,21 +20,24 @@ function setFootballLineups() {
       editStartingLineup(roster);
       Logger.log("Lineup set for team " + team_key);
     });
-  // }
+  }
 }
 
 function editStartingLineup(teamRoster) {
   const { team_key, players, coverage_type, coverage_period } = teamRoster;
 
-  // Loop through all players and add them to either the benched or rostered list if required.
+  // Loop through all players and add them to either the benched, rostered, or IR list.
   // We don't want to be swapping players if they are not editable, if they are hurt, or if they are in an IR spot
-  var benched = [];
-  var rostered = [];
+  const benched = [];
+  const rostered = [];
+  const healthyOnIR = [];
+  const injuredOnRoster = [];
   players.forEach(player => {
     if (player.is_editable) {
       // Player statuses to be treated as healthy
       const healthyStatusList = ["Healthy", "Questionable", "Probable"];
       if (player.selected_position === "BN" && player.is_playing && healthyStatusList.includes(player.injury_status)) {
+        // Add player to 'benched' list for potential swap into active roster
         benched.push(player);
       } else if (!["IR", "IR+", "BN"].includes(player.selected_position)) {
         // Artificially set the percent_started to 0 if the player is not playing to de-prioritize them in the lineup
@@ -43,8 +46,16 @@ function editStartingLineup(teamRoster) {
         // Artificially factor the percent_started by 0.01 if the player is hurt. Priority will be above players not playing at all, but below others.
         if (!healthyStatusList.includes(player.injury_status))
           player.percent_started = player.percent_started * 0.01;
-
+        // Add player to 'rostered' list, which reflects the current active roster
         rostered.push(player);
+      } else if (["IR", "IR+"].includes(player.selected_position) && healthyStatusList.includes(player.injury_status)) {
+        // If there is a healthy player sitting on the IR, add them to a list for potential swap onto bench/roster
+        healthyOnIR.push(player);
+      }
+      // In addition to adding to one of the three lists above, check if the player is IR eligible and on the bench/roster
+      const arrayIntersection = ["IR", "IR+"].filter(value => player.eligible_positions.includes(value));
+      if (!["IR", "IR+"].includes(player.selected_position) && arrayIntersection.length > 0) {
+        injuredOnRoster.push(player);
       }
     }
   });
@@ -128,7 +139,8 @@ function editStartingLineup(teamRoster) {
   } // end swapPlayerIntoRoster()
 
   // Define a dictionary to hold the new positions of all moved players
-  var new_player_positions = {};
+  const new_player_positions = {};
+  // TODO: Before looping all players, check if any IR eligible players can be swapped with healthy players on IR.
   // Loop over all benched players with games and swap into the active roster if able
   while (benched.length > 0) {
     // Pop the benchPlayer off the benched stack, it will either be moved to the roster, or it belongs on the bench and can be ignored.
@@ -148,10 +160,9 @@ function editStartingLineup(teamRoster) {
 }
 
 function createTimeDrivenTriggers() {
-  // Runs at approximately :25 and :55 every hour
+  // Runs at approximately :55 every hour
   ScriptApp.newTrigger("setFootballLineups")
     .timeBased()
-    .nearMinute(25)
     .nearMinute(55)
     .everyHours(1) // Frequency is required if you are using atHour() or nearMinute()
     .create();

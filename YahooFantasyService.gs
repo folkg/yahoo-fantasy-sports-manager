@@ -61,6 +61,7 @@ function getTeams(sport) {
     const doc = XmlService.parse(response.getContentText());
     const root = doc.getRootElement();
 
+    //TODO: Use the proper XML child calls for this - this is an inefficient, slow helper function. getTeams() isn't super long, so NBD, but still.
     const team_keys = getElementsByTagName(root, 'team_key');
 
     // return array of Yahoo hockey team_keys
@@ -181,7 +182,7 @@ function modifyRoster(team_key, coverage_type, coverage_period, new_player_posit
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
-    
+
     // Build the input XML to move players to new positions
     const startXML = '<fantasy_content>' +
       '<roster>' +
