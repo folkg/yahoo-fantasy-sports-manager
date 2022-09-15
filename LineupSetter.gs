@@ -1,4 +1,5 @@
 function setHockeyLineups() {
+  //TODO: Do we really need the time restrictions? Is it any trouble to run these 24 times per day? Most times there will be no pushes.
   if (hockeyScriptRunTimes()) {
     const teams = getTeams("nhl");
     Logger.log("Settings Lineups for the following teams: " + teams);

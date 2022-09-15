@@ -11,7 +11,7 @@ function test_API() {
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/leagues';
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/teams';
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/414.l.240994.t.12/roster/players;out=percent_started,opponent';
-    //count=100 doesn't seem to do anything, return max 25
+    // count=100 doesn't seem to do anything, return max 25
     const url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/414.l.240994/players;sort=R_PO;status=A;out=percent_owned' // R_POC is the web version. Doesn't seem to work here.
     response = UrlFetchApp.fetch(url, {
       headers: {
@@ -60,9 +60,14 @@ function getTeams(sport) {
     // the return type is xml, find all 'team_key' items in the response and add to array
     const doc = XmlService.parse(response.getContentText());
     const root = doc.getRootElement();
-
-    //TODO: Use the proper XML child calls for this - this is an inefficient, slow helper function. getTeams() isn't super long, so NBD, but still.
-    const team_keys = getElementsByTagName(root, 'team_key');
+    const xmlNamespace = root.getNamespace();
+    const game_elements = root.getChild("users", xmlNamespace).getChild("user", xmlNamespace).getChild("games", xmlNamespace).getChildren("game", xmlNamespace);
+    const team_elements = game_elements.flatMap(ge =>
+      ge.getChild("teams", xmlNamespace).getChildren("team", xmlNamespace)
+    );
+    const team_keys = team_elements.map(te =>
+      te.getChildText("team_key", xmlNamespace)
+    );
 
     // return array of Yahoo hockey team_keys
     return team_keys;
