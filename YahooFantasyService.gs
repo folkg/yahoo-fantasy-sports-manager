@@ -11,7 +11,8 @@ function test_API() {
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/leagues';
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/teams';
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/414.l.240994.t.12/roster/players;out=percent_started,opponent';
-    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/414.l.240994/settings' // settings.getChild(roster_positions).getChildren(roster_position) >> position, count
+    //count=100 doesn't seem to do anything, return max 25
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/414.l.240994/players;sort=R_PO;status=A;out=percent_owned' // R_POC is the web version. Doesn't seem to work here.
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
@@ -19,6 +20,7 @@ function test_API() {
       , "muteHttpExceptions": true
     });
     // the return type is xml, find all 'team_key' items in the response and add to array
+    // Logger = BetterLog.useSpreadsheet('1azpYfhxShueuk0dr6EWAsIukBlJ_nDPSjbXIvptfBA0');
     Logger.log(response.getContentText());
     const doc = XmlService.parse(response.getContentText());
     const root = doc.getRootElement();
@@ -59,7 +61,7 @@ function getTeams(sport) {
     const doc = XmlService.parse(response.getContentText());
     const root = doc.getRootElement();
 
-    const team_keys = getElementStringsByTagName(root, 'team_key');
+    const team_keys = getElementsByTagName(root, 'team_key');
 
     // return array of Yahoo hockey team_keys
     return team_keys;
@@ -121,19 +123,20 @@ function getTeamRoster(team_key) {
     //TODO: Add projected points for use in points only leagues (ie. football)
 
     //loop through each player element and extract the relevant data to our new object
+    //getElementsByTagName(element, "eligible_positions")[0].replace(/\s/g, '')
     var players = [];
     player_elements.forEach((element) => {
       const player = {
         player_key: element.getChildText("player_key", xmlNamespace),
         // player_name: getElementStringsByTagName(e, "full")[0],
         // nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
-        eligible_positions: getElementStringsByTagName(element, "eligible_positions")[0].replace(/\s/g, ''),
+        eligible_positions: element.getChild("eligible_positions", xmlNamespace).getValue().trim().split(/\s+/),
         selected_position: element.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
         is_editable: element.getChildText("is_editable", xmlNamespace) === "1" ? true : false,
         is_playing: element.getChildText("opponent", xmlNamespace) ? true : false,
         injury_status: element.getChildText("status_full", xmlNamespace) || "Healthy",
         percent_started: parseInt(element.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace)),
-        is_starting: getElementStringsByTagName(element, "is_starting")[0] || "N/A",
+        // is_starting: getElementsByTagName(element, "is_starting")[0] || "N/A",
       };
 
       // Remove the player's selected position from the allowable total

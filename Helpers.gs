@@ -1,44 +1,45 @@
 /**
 * Find elements in an XML file by their tag name, returns them all in an array.
 */
-function getElementStringsByTagName(element, tagName) {  
+function getElementsByTagName(element, tagName) {
   var data = [];
-  var descendants = element.getDescendants();  
-  for(i in descendants) {
-    var elt = descendants[i].asElement();     
-    if( elt !=null && elt.getName()== tagName) data.push(elt.getValue());
+  var descendants = element.getDescendants();
+  for (i in descendants) {
+    var elt = descendants[i].asElement();
+    if (elt != null && elt.getName() == tagName) data.push(elt.getValue());
   }
   return data;
 }
 
-function getElementObjectsByTagName(element, tagName) {  
-  var data = [];
-  var descendants = element.getDescendants();  
-  for(i in descendants) {
-    var elt = descendants[i].asElement();     
-    if( elt !=null && elt.getName()== tagName) data.push(elt);
+function footballScriptRunTimes() {
+  const today = new Date();
+
+  // Thursday 8:15pm
+  // Friday 6pm early, 830pm late
+  // Monday 715pm to 830pm
+
+  const day = today.getDay(); // 0 is Sunday
+  if (day == 2 || day == 3) {
+    return false;
   }
-  return data;
+
+  // Only run between reasonable hours
+  const hour = today.getHours();
+  if (hour < 10 || hour > 18) {
+    return false;
+  }
+
+  return true;
 }
 
-/*
-This function borrowed from devinmcinnis @ https://github.com/devinmcinnis/yahoo-fantasy-start-active-players/blob/master/script.js
-*/
-function dateToString (date) {
-  // From the new date we created, get the values for year, month, day
-  var year = date.getFullYear();
-  var month = date.getMonth() + 1;//dates run 0-11
-  var day = date.getDate();
-  
-  // Same as in the beginning, if a month or day is a single digit,
-  // add a '0' in front of it; again, for Yahoo
-  if (month.toString().length === 1) {
-    month = '0' + month;
+function hockeyScriptRunTimes() {
+  const today = new Date();
+
+  // Run every day
+  // Only run between reasonable hours
+  const hour = today.getHours();
+  if (hour < 10 || hour > 20) {
+    return false;
   }
-  
-  if (day.toString().length === 1) {
-    day = '0' + day;
-  }
-  
-  return year + '-' + month + '-' + day;
+  return true;
 }

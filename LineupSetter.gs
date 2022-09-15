@@ -1,22 +1,26 @@
 function setHockeyLineups() {
-  const teams = getTeams("nhl");
-  Logger.log("Settings Lineups for the following teams: " + teams);
-  teams.forEach((team_key) => {
-    const roster = getTeamRoster(team_key);
-    editStartingLineup(roster);
-    Logger.log("Lineup set for team " + team_key);
-  });
+  if (hockeyScriptRunTimes()) {
+    const teams = getTeams("nhl");
+    Logger.log("Settings Lineups for the following teams: " + teams);
+    teams.forEach((team_key) => {
+      const roster = getTeamRoster(team_key);
+      editStartingLineup(roster);
+      Logger.log("Lineup set for team " + team_key);
+    });
+  }
 }
 
 function setFootballLineups() {
-  const teams = getTeams("nfl");
-  Logger.log(teams);
-  Logger.log("Settings Lineups for the following teams: " + teams);
-  teams.forEach((team_key) => {
-    const roster = getTeamRoster(team_key);
-    editStartingLineup(roster);
-    Logger.log("Lineup set for team " + team_key);
-  });
+  // if (footballScriptRunTimes()) {
+    const teams = getTeams("nfl");
+    Logger.log(teams);
+    Logger.log("Settings Lineups for the following teams: " + teams);
+    teams.forEach((team_key) => {
+      const roster = getTeamRoster(team_key);
+      editStartingLineup(roster);
+      Logger.log("Lineup set for team " + team_key);
+    });
+  // }
 }
 
 function editStartingLineup(teamRoster) {
@@ -29,7 +33,7 @@ function editStartingLineup(teamRoster) {
   players.forEach(player => {
     if (player.is_editable) {
       // Player statuses to be treated as healthy
-      const healthyStatusList = ["Healthy","Questionable", "Probable"];
+      const healthyStatusList = ["Healthy", "Questionable", "Probable"];
       if (player.selected_position === "BN" && player.is_playing && healthyStatusList.includes(player.injury_status)) {
         benched.push(player);
       } else if (!["IR", "IR+", "BN"].includes(player.selected_position)) {
@@ -56,8 +60,7 @@ function editStartingLineup(teamRoster) {
 
   // Define the function that attempts to move a bench player onto the active roster
   const swapPlayerToActiveRoster = (benchPlayer) => {
-    for (var i = 0; i < rostered.length; i++) {
-      const rosterPlayer = rostered[i];
+    for (const rosterPlayer of rostered) {
       if (benchPlayer.eligible_positions.includes(rosterPlayer.selected_position)) {
         // If the rosterPlayer's current position is included in the list of the benchPlayer's eligible positions.
         // We are only looking closer at players we can actually swap with.
@@ -89,9 +92,10 @@ function editStartingLineup(teamRoster) {
         } else {
           // If the benchPlayer has a lower score than the rosterPlayer
           // We will see if there are any three-way swaps available to accomodate benchPlayer
-          // Compare the rosterPlayer with each of the players with a lower score than benchPlayer (i.e. previously checked players)
-          for (var j = 0; j < i; j++) {
-            const thirdPlayer = rostered[j];
+          // Compare the rosterPlayer with each of the players (thirdPlayer) with a lower score than benchPlayer
+          var idx = 0;
+          var thirdPlayer = rostered[idx];
+          while (compareByPercentStarted(thirdPlayer, benchPlayer) < 0) {
             if (rosterPlayer.eligible_positions.includes(thirdPlayer.selected_position)) {
               // If rosterPlayer can be swapped with any of the earlier players, Perform a 3-way swap.              
               benchPlayer.selected_position = rosterPlayer.selected_position;
@@ -116,9 +120,8 @@ function editStartingLineup(teamRoster) {
               // We are finished with this benchPlayer, they have been added to the active roster.
               return;
             } // end if possible three-way swap
-          } // end for j, loop through all lower score players
-          // All worse players have been checked. No swap has been made, return from the function.
-          return;
+            thirdPlayer = rostered[++idx];
+          } //end while
         } // end if/else compare score
       } // end if players are of compatible positions. Move on to check next compatible roster player.
     } // end for i loop
@@ -143,6 +146,23 @@ function editStartingLineup(teamRoster) {
     Logger.log(response);
   }
 }
+
+function createTimeDrivenTriggers() {
+  // Runs at approximately :25 and :55 every hour
+  ScriptApp.newTrigger("setFootballLineups")
+    .timeBased()
+    .nearMinute(25)
+    .nearMinute(55)
+    .everyHours(1) // Frequency is required if you are using atHour() or nearMinute()
+    .create();
+
+  // ScriptApp.newTrigger("setHockeyLineups")
+  //   .timeBased()
+  //   .nearMinute(55)
+  //   .everyHours(1) // Frequency is required if you are using atHour() or nearMinute()
+  //   .create();
+}
+
 //TODO: Is this function even required? We might be able to get this data from Yahoo itself from the API
 function getTodaysTeamsGoalies() {
   var goalies = [];
