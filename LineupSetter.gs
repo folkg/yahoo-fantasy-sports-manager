@@ -1,5 +1,4 @@
 function setHockeyLineups() {
-  //TODO: Do we really need the time restrictions? Is it any trouble to run these 24 times per day? Most times there will be no pushes.
   if (hockeyScriptRunTimes()) {
     const teams = getTeams("nhl");
     Logger.log("Settings Lineups for the following teams: " + teams);
@@ -13,15 +12,20 @@ function setHockeyLineups() {
 
 function setFootballLineups() {
   if (footballScriptRunTimes()) {
-    const teams = getTeams("nfl");
-    Logger.log(teams);
-    Logger.log("Settings Lineups for the following teams: " + teams);
-    teams.forEach((team_key) => {
-      const roster = getTeamRoster(team_key);
-      editStartingLineup(roster);
-      Logger.log("Lineup set for team " + team_key);
-    });
+  const teams = getTeams("nfl");
+  Logger.log(teams);
+  Logger.log("Settings Lineups for the following teams: " + teams);
+  teams.forEach((team_key) => {
+    const roster = getTeamRoster(team_key);
+    editStartingLineup(roster);
+    Logger.log("Lineup set for team " + team_key);
+  });
   }
+}
+
+function test() {
+  const player = { eligible_positions: [] }
+  const arrayIntersection = ["IR", "IR+"].filter(value => player.eligible_positions.includes(value));
 }
 
 function editStartingLineup(teamRoster) {
@@ -33,32 +37,47 @@ function editStartingLineup(teamRoster) {
   const rostered = [];
   const healthyOnIR = [];
   const injuredOnRoster = [];
+  const emptyPositions = {};
   players.forEach(player => {
     if (player.is_editable) {
       // Player statuses to be treated as healthy
       const healthyStatusList = ["Healthy", "Questionable", "Probable"];
-      if (player.selected_position === "BN" && player.is_playing && healthyStatusList.includes(player.injury_status)) {
-        // Add player to 'benched' list for potential swap into active roster
-        benched.push(player);
-      } else if (!["IR", "IR+", "BN"].includes(player.selected_position)) {
-        // Artificially set the percent_started to 0 if the player is not playing to de-prioritize them in the lineup
-        if (!player.is_playing)
-          player.percent_started = 0;
-        // Artificially factor the percent_started by 0.01 if the player is hurt. Priority will be above players not playing at all, but below others.
-        if (!healthyStatusList.includes(player.injury_status))
-          player.percent_started = player.percent_started * 0.01;
-        // Add player to 'rostered' list, which reflects the current active roster
-        rostered.push(player);
-      } else if (["IR", "IR+"].includes(player.selected_position) && healthyStatusList.includes(player.injury_status)) {
-        // If there is a healthy player sitting on the IR, add them to a list for potential swap onto bench/roster
-        healthyOnIR.push(player);
-      }
-      // In addition to adding to one of the three lists above, check if the player is IR eligible and on the bench/roster
-      const arrayIntersection = ["IR", "IR+"].filter(value => player.eligible_positions.includes(value));
-      if (!["IR", "IR+"].includes(player.selected_position) && arrayIntersection.length > 0) {
-        injuredOnRoster.push(player);
-      }
-    }
+
+      if (["IR", "IR+"].includes(player.selected_position)) {
+        // If the player is currently in an IR position
+        if (healthyStatusList.includes(player.injury_status)) {
+          // If the player is actually healthy
+          if (player.player_key === null) {
+            // Count the number of empty IR or IR+ spots, represented by a null player key
+            emptyPositions[player.selected_position] += 1;
+          } else {
+            // If there is a healthy player sitting on the IR, add them to a list for potential swap onto bench/roster
+            healthyOnIR.push(player);
+          } //end if player_key === null
+        }// end if the player is actually healthy
+      } else {
+        // If the player is NOT currently in an IR position
+        if (player.selected_position !== "BN") {
+          // If the player is currently on the active roster
+          // Artificially set the percent_started to 0 if the player is not playing to de-prioritize them in the lineup
+          if (!player.is_playing)
+            player.percent_started = 0;
+          // Artificially factor the percent_started by 0.01 if the player is hurt. Priority will be above players not playing at all, but below others.
+          if (!healthyStatusList.includes(player.injury_status))
+            player.percent_started = player.percent_started * 0.01;
+          // Add player to 'rostered' list, which reflects the current active roster
+          rostered.push(player);
+        } else if (player.is_playing && healthyStatusList.includes(player.injury_status)) {
+          // Add player to 'benched' list for potential swap into active roster
+          benched.push(player);
+        } //end if player.selected_position == "BN"
+
+        // In addition to adding to the benched or rostered arrays above, check if the player is IR/IR+ eligible and on the bench/roster
+        if (player.player_key && player.eligible_positions.includes("IR+")) {
+          injuredOnRoster.push(player);
+        }
+      } //end if player is currently in an IR position
+    } //end if player is editable
   });
 
   // Sort both player arrays by percent_started
@@ -69,6 +88,68 @@ function editStartingLineup(teamRoster) {
 
   // 'rostered' will be sorted with the lowest percent_started at the beginning, so the worst palyer will always be checked first
   rostered.sort(compareByPercentStarted);
+
+  // Define a dictionary to hold the new positions of all swapped players
+  const new_player_positions = {};
+
+  // Before looping all players, check if any IR eligible players can be swapped with healthy players on IR.
+  if (healthyOnIR.length > 0 && injuredOnRoster.length > 0) {
+    // Healthy players on IR will be sorted higher to lower
+    healthyOnIR.sort(compareByPercentStarted).reverse();
+    // IR eligible players on bench will be sorted lower to higher
+    injuredOnRoster.sort(compareByPercentStarted);
+
+    // function containing repeated code to move player to bench
+    const movePlayerToBN = (player) => {
+      new_player_positions[player.player_key] = "BN";
+      if (player.is_playing)
+        benched.push(player);
+    }
+
+    // Priority one will be to move injuredPlayer onto IR. Priority two will be to move injuredPlayer onto IR+.
+    // healthyPlayer will be put onto the bench in this function, and moved into active roster later if necessary.
+    for (const healthyPlayer of healthyOnIR) {
+      for (var i = 0; i < injuredOnRoster.length; i++) {
+        injuredPlayer = injuredOnRoster[i];
+        if (injuredPlayer.eligible_positions.includes("IR")) {
+          if (healthyPlayer.selected_position === "IR") {
+            // Both players are IR eligible, swap them and move to next healthyPlayer.
+            movePlayerToBN(healthyPlayer);
+            new_player_positions[injuredPlayer.player_key] = "IR";
+            injuredOnRoster.splice(i, 1);
+            break;
+          }
+          if (emptyPositions["IR"] > 0) {
+            // If there is an empty spot on IR, it doesn't matter if healthyPlayer is IR or IR+,
+            // just move injuredPlayer to IR and healthyPlayer to bench
+            movePlayerToBN(healthyPlayer);
+            new_player_positions[injuredPlayer.player_key] = "IR";
+            emptyPositions["IR"] -= 1;
+            break;
+          }
+        } else {
+          // injuredPlayer is ONLY IR+ eligible
+          if (healthyPlayer.selected_position === "IR+") {
+            // Both players are IR+ eligible, swap them and move to next healthyPlayer.
+            movePlayerToBN(healthyPlayer);
+            new_player_positions[injuredPlayer.player_key] = "IR+";
+            injuredOnRoster.splice(i, 1);
+            break;
+          }
+          if (emptyPositions["IR+"] > 0) {
+            // If there is an empty roster spot
+            movePlayerToBN(healthyPlayer);
+            new_player_positions[injuredPlayer.player_key] = "IR+";
+            emptyPositions["IR+"] -= 1;
+            break;
+          }
+        } //end if injuredPlayer is IR eligible
+        // If we reach this point, healthyPlayer could not be swapped with current injuredPlayer, check next injuredPlayer
+      } //end for i
+      // If we reach this point, unfortunately, healthyPlayer could not be swapped onto bench at all :(.
+      // This could happen if healthyPlayer is in IR position, but injuredPlayer only IR+ eligible, with no spare IR/IR+ spots left.
+    } // end for healthyPlayer
+  } //end check IR players
 
   // Define the function that attempts to move a bench player onto the active roster
   const swapPlayerToActiveRoster = (benchPlayer) => {
@@ -139,9 +220,6 @@ function editStartingLineup(teamRoster) {
     } // end for i loop
   } // end swapPlayerIntoRoster()
 
-  // Define a dictionary to hold the new positions of all moved players
-  const new_player_positions = {};
-  // TODO: Before looping all players, check if any IR eligible players can be swapped with healthy players on IR.
   // Loop over all benched players with games and swap into the active roster if able
   while (benched.length > 0) {
     // Pop the benchPlayer off the benched stack, it will either be moved to the roster, or it belongs on the bench and can be ignored.
@@ -195,5 +273,3 @@ function getTodaysTeamsGoalies() {
   //TODO: Get todays starting goaltenders
 
 }
-
-

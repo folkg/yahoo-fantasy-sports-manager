@@ -134,15 +134,13 @@ function getTeamRoster(team_key) {
     player_elements.forEach((element) => {
       const player = {
         player_key: element.getChildText("player_key", xmlNamespace),
-        // player_name: getElementStringsByTagName(e, "full")[0],
-        // nhl_team: e.getChildText("editorial_team_abbr", xmlNamespace),
         eligible_positions: element.getChild("eligible_positions", xmlNamespace).getValue().trim().split(/\s+/),
         selected_position: element.getChild("selected_position", xmlNamespace).getChildText("position", xmlNamespace),
         is_editable: element.getChildText("is_editable", xmlNamespace) === "1" ? true : false,
         is_playing: element.getChildText("opponent", xmlNamespace) ? true : false,
         injury_status: element.getChildText("status_full", xmlNamespace) || "Healthy",
-        percent_started: parseInt(element.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace)),
-        // is_starting: getElementsByTagName(element, "is_starting")[0] || "N/A",
+        percent_started: parseInt(element.getChild("percent_started", xmlNamespace).getChildText("value", xmlNamespace)) || 0,
+        // is_starting: get ("is_starting") || "N/A",
       };
 
       // Remove the player's selected position from the allowable total
@@ -156,7 +154,7 @@ function getTeamRoster(team_key) {
     //Add a dummy player for every unfilled position in the roster (not IR, IR+, or BN)
     for (const position in position_counter) {
       const count = position_counter[position];
-      if (!["IR", "IR+", "BN"].includes(position) && count > 0) {
+      if (position !== "BN" && count > 0) {
         for (var i = 0; i < count; i++) {
           const player = {
             player_key: null,
