@@ -151,7 +151,7 @@ function getTeamRoster(team_key) {
       players.push(player);
     });
 
-    //Add a dummy player for every unfilled position in the roster (not IR, IR+, or BN)
+    //Add a dummy player for every unfilled position in the roster (not BN)
     for (const position in position_counter) {
       const count = position_counter[position];
       if (position !== "BN" && count > 0) {

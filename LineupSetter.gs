@@ -12,20 +12,14 @@ function setHockeyLineups() {
 
 function setFootballLineups() {
   if (footballScriptRunTimes()) {
-  const teams = getTeams("nfl");
-  Logger.log(teams);
-  Logger.log("Settings Lineups for the following teams: " + teams);
-  teams.forEach((team_key) => {
-    const roster = getTeamRoster(team_key);
-    editStartingLineup(roster);
-    Logger.log("Lineup set for team " + team_key);
-  });
+    const teams = getTeams("nfl");
+    Logger.log("Settings Lineups for the following teams: " + teams);
+    teams.forEach((team_key) => {
+      const roster = getTeamRoster(team_key);
+      editStartingLineup(roster);
+      Logger.log("Lineup set for team " + team_key);
+    });
   }
-}
-
-function test() {
-  const player = { eligible_positions: [] }
-  const arrayIntersection = ["IR", "IR+"].filter(value => player.eligible_positions.includes(value));
 }
 
 function editStartingLineup(teamRoster) {
@@ -225,9 +219,19 @@ function editStartingLineup(teamRoster) {
     // Pop the benchPlayer off the benched stack, it will either be moved to the roster, or it belongs on the bench and can be ignored.
     const benchPlayer = benched.pop();
 
-    // Only attempt to swap player if it is better than at least one player on the active roster. Otherwise, just discard and move to the next.
-    if (compareByPercentStarted(benchPlayer, rostered[0]) > 0) {
-      swapPlayerToActiveRoster(benchPlayer);
+    //TODO: Temporary try/catch to determine the variable content when the error occurs.
+    try {
+      // Only attempt to swap player if it is better than at least one player on the active roster. Otherwise, just discard and move to the next.
+      if (compareByPercentStarted(benchPlayer, rostered[0]) > 0) {
+        swapPlayerToActiveRoster(benchPlayer);
+      }
+    }
+    catch (err) {
+      Logger.log(err.stack);
+      Logger.log("benched.length: " + benched.length);
+      Logger.log("benchPlayer: " +benchPlayer.player_key);
+      Logger.log("rostered length: " + rostered.length);
+      Logger.log("rostered[0]: " +rostered[0].player_key);
     }
   } //end while
 
