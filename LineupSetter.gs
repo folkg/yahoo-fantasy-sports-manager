@@ -23,7 +23,7 @@ function setFootballLineups() {
 }
 
 function editStartingLineup(teamRoster) {
-  const { team_key, players, coverage_type, coverage_period } = teamRoster;
+  const { teamKey, players, coverageType, coveragePeriod } = teamRoster;
 
   // Loop through all players and add them to either the benched, rostered, or IR list.
   // We don't want to be swapping players if they are not editable, if they are hurt, or if they are in an IR spot
@@ -84,7 +84,7 @@ function editStartingLineup(teamRoster) {
   rostered.sort(compareByPercentStarted);
 
   // Define a dictionary to hold the new positions of all swapped players
-  const new_player_positions = {};
+  const newPlayerPositions = {};
 
   // Before looping all players, check if any IR eligible players can be swapped with healthy players on IR.
   if (healthyOnIR.length > 0 && injuredOnRoster.length > 0) {
@@ -95,7 +95,7 @@ function editStartingLineup(teamRoster) {
 
     // function containing repeated code to move player to bench
     const movePlayerToBN = (player) => {
-      new_player_positions[player.player_key] = "BN";
+      newPlayerPositions[player.player_key] = "BN";
       if (player.is_playing)
         benched.push(player);
     }
@@ -109,7 +109,7 @@ function editStartingLineup(teamRoster) {
           if (healthyPlayer.selected_position === "IR") {
             // Both players are IR eligible, swap them and move to next healthyPlayer.
             movePlayerToBN(healthyPlayer);
-            new_player_positions[injuredPlayer.player_key] = "IR";
+            newPlayerPositions[injuredPlayer.player_key] = "IR";
             injuredOnRoster.splice(i, 1);
             break;
           }
@@ -117,7 +117,7 @@ function editStartingLineup(teamRoster) {
             // If there is an empty spot on IR, it doesn't matter if healthyPlayer is IR or IR+,
             // just move injuredPlayer to IR and healthyPlayer to bench
             movePlayerToBN(healthyPlayer);
-            new_player_positions[injuredPlayer.player_key] = "IR";
+            newPlayerPositions[injuredPlayer.player_key] = "IR";
             emptyPositions["IR"] -= 1;
             break;
           }
@@ -126,14 +126,14 @@ function editStartingLineup(teamRoster) {
           if (healthyPlayer.selected_position === "IR+") {
             // Both players are IR+ eligible, swap them and move to next healthyPlayer.
             movePlayerToBN(healthyPlayer);
-            new_player_positions[injuredPlayer.player_key] = "IR+";
+            newPlayerPositions[injuredPlayer.player_key] = "IR+";
             injuredOnRoster.splice(i, 1);
             break;
           }
           if (emptyPositions["IR+"] > 0) {
             // If there is an empty roster spot
             movePlayerToBN(healthyPlayer);
-            new_player_positions[injuredPlayer.player_key] = "IR+";
+            newPlayerPositions[injuredPlayer.player_key] = "IR+";
             emptyPositions["IR+"] -= 1;
             break;
           }
@@ -158,11 +158,11 @@ function editStartingLineup(teamRoster) {
           benchPlayer.selected_position = rosterPlayer.selected_position;
           rosterPlayer.selected_position = "BN";
 
-          // Add to the new_player_positions dictionary
-          new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
+          // Add to the newPlayerPositions dictionary
+          newPlayerPositions[benchPlayer.player_key] = benchPlayer.selected_position;
           if (rosterPlayer.player_key !== null) {
             // Only add the rosterPlayer to dictionary if it was not a dummy empty roster spot
-            new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
+            newPlayerPositions[rosterPlayer.player_key] = rosterPlayer.selected_position;
             // If rosterPlayer plays a game today, add it to top of the benched stack for the next while loop iteration.
             // rosterPlayer could still potentially displace a different player
             if (rosterPlayer.is_playing)
@@ -189,12 +189,12 @@ function editStartingLineup(teamRoster) {
               rosterPlayer.selected_position = thirdPlayer.selected_position;
               thirdPlayer.selected_position = "BN";
 
-              // Add all players the new_player_positions dictionary that will be swapped
-              new_player_positions[benchPlayer.player_key] = benchPlayer.selected_position;
-              new_player_positions[rosterPlayer.player_key] = rosterPlayer.selected_position;
+              // Add all players the newPlayerPositions dictionary that will be swapped
+              newPlayerPositions[benchPlayer.player_key] = benchPlayer.selected_position;
+              newPlayerPositions[rosterPlayer.player_key] = rosterPlayer.selected_position;
 
               if (thirdPlayer.player_key !== null) {
-                new_player_positions[thirdPlayer.player_key] = thirdPlayer.selected_position;
+                newPlayerPositions[thirdPlayer.player_key] = thirdPlayer.selected_position;
                 if (thirdPlayer.is_playing)
                   benched.push(thirdPlayer);
               }
@@ -235,9 +235,9 @@ function editStartingLineup(teamRoster) {
     }
   } //end while
 
-  // Send the new_player_positions dictionary to Yahoo to make the changes official
-  if (Object.keys(new_player_positions).length > 0) {
-    const response = modifyRoster(team_key, coverage_type, coverage_period, new_player_positions);
+  // Send the newPlayerPositions dictionary to Yahoo to make the changes official
+  if (Object.keys(newPlayerPositions).length > 0) {
+    const response = modifyRoster(teamKey, coverageType, coveragePeriod, newPlayerPositions);
     Logger.log(response);
   }
 }
