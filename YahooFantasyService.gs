@@ -45,12 +45,12 @@ function getTeams(sport) {
   if (yahooService.hasAccess()) {
 
     //Fetch a list of all teams registered to the user for the sport passed in. Will fetch all sports if no argument given.
-    var game_keys = "";
+    var gameKeys = "";
     if (sport) {
-      game_keys = ";game_keys=" + sport;
+      gameKeys = ";game_keys=" + sport;
     }
 
-    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games' + game_keys + '/teams';
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games' + gameKeys + '/teams';
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
@@ -61,16 +61,16 @@ function getTeams(sport) {
     const doc = XmlService.parse(response.getContentText());
     const root = doc.getRootElement();
     const xmlNamespace = root.getNamespace();
-    const game_elements = root.getChild("users", xmlNamespace).getChild("user", xmlNamespace).getChild("games", xmlNamespace).getChildren("game", xmlNamespace);
-    const team_elements = game_elements.flatMap(ge =>
+    const gameElements = root.getChild("users", xmlNamespace).getChild("user", xmlNamespace).getChild("games", xmlNamespace).getChildren("game", xmlNamespace);
+    const teamElements = gameElements.flatMap(ge =>
       ge.getChild("teams", xmlNamespace).getChildren("team", xmlNamespace)
     );
-    const team_keys = team_elements.map(te =>
+    const teamKeys = teamElements.map(te =>
       te.getChildText("team_key", xmlNamespace)
     );
 
     // return array of Yahoo hockey team_keys
-    return team_keys;
+    return teamKeys;
   } else {
     // Present authorization URL to user in the logs
     const authorizationUrl = yahooService.getAuthorizationUrl();
@@ -79,7 +79,7 @@ function getTeams(sport) {
   }
 } //end getTeams()
 
-function getTeamRoster(team_key) {
+function getTeamRoster(teamKey) {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
@@ -87,8 +87,8 @@ function getTeamRoster(team_key) {
     var url, response, doc, root;
 
     // Get the roster positions from the league settings
-    const league_key = team_key.split(".t.", 1)[0];
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/' + league_key + '/settings';
+    const leagueKey = teamKey.split(".t.", 1)[0];
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/' + leagueKey + '/settings';
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()
@@ -99,15 +99,15 @@ function getTeamRoster(team_key) {
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
     const xmlNamespace = root.getNamespace();
-    const roster_positions = root.getChild("league", xmlNamespace).getChild("settings", xmlNamespace).getChild("roster_positions", xmlNamespace).getChildren("roster_position", xmlNamespace);
+    const rosterPositions = root.getChild("league", xmlNamespace).getChild("settings", xmlNamespace).getChild("roster_positions", xmlNamespace).getChildren("roster_position", xmlNamespace);
 
-    var position_counter = {};
-    roster_positions.forEach((element) => {
-      position_counter[element.getChildText("position", xmlNamespace)] = parseInt(element.getChildText("count", xmlNamespace));
+    var positionCounter = {};
+    rosterPositions.forEach((element) => {
+      positionCounter[element.getChildText("position", xmlNamespace)] = parseInt(element.getChildText("count", xmlNamespace));
     });
 
     //TODO: How do we get the projected point totals if this is a points only league? Add a new out='' prop to the request, probably
-    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster/players;out=percent_started,opponent,starting_status';
+    url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/' + teamKey + '/roster/players;out=percent_started,opponent,starting_status';
 
     response = UrlFetchApp.fetch(url, {
       headers: {
@@ -119,11 +119,11 @@ function getTeamRoster(team_key) {
     // Logger.log(response.getContentText());
     doc = XmlService.parse(response.getContentText());
     root = doc.getRootElement();
-    const roster_element = root.getChild("team", xmlNamespace).getChild("roster", xmlNamespace);
+    const rosterElement = root.getChild("team", xmlNamespace).getChild("roster", xmlNamespace);
     // Extract information from the XML to be returned from the function
-    const coverage_type = roster_element.getChildText("coverage_type", xmlNamespace);
-    const coverage_period = roster_element.getChildText(coverage_type, xmlNamespace);
-    const player_elements = roster_element.getChild("players", xmlNamespace).getChildren("player", xmlNamespace);
+    const coverageType = rosterElement.getChildText("coverage_type", xmlNamespace);
+    const coveragePeriod = rosterElement.getChildText(coverageType, xmlNamespace);
+    const playerElements = rosterElement.getChild("players", xmlNamespace).getChildren("player", xmlNamespace);
 
     //TODO: I am hoping that is_starting will be populated for the goaltenders. If not, we will need to fetch from elsewhere. Once the season starts I may be able to determine if there is a specific subresource that will provide this info for the goalies that I can call.
     //TODO: Add projected points for use in points only leagues (ie. football)
@@ -131,7 +131,7 @@ function getTeamRoster(team_key) {
     //loop through each player element and extract the relevant data to our new object
     //getElementsByTagName(element, "eligible_positions")[0].replace(/\s/g, '')
     var players = [];
-    player_elements.forEach((element) => {
+    playerElements.forEach((element) => {
       const player = {
         player_key: element.getChildText("player_key", xmlNamespace),
         eligible_positions: element.getChild("eligible_positions", xmlNamespace).getValue().trim().split(/\s+/),
@@ -145,15 +145,15 @@ function getTeamRoster(team_key) {
 
       // Remove the player's selected position from the allowable total
       // At the end, position_counter will hold the number of unfilled positions on the roster
-      position_counter[player.selected_position] -= 1;
+      positionCounter[player.selected_position] -= 1;
 
       // Push the player to the object
       players.push(player);
     });
 
     //Add a dummy player for every unfilled position in the roster (not BN)
-    for (const position in position_counter) {
-      const count = position_counter[position];
+    for (const position in positionCounter) {
+      const count = positionCounter[position];
       if (position !== "BN" && count > 0) {
         for (var i = 0; i < count; i++) {
           const player = {
@@ -172,7 +172,7 @@ function getTeamRoster(team_key) {
     }// end for position loop
 
     //return the values required to the set lineup function
-    return { team_key, players, coverage_type, coverage_period };
+    return { teamKey, players, coverageType, coveragePeriod };
   } else {
     // Present authorization URL to user in the logs
     const authorizationUrl = yahooService.getAuthorizationUrl();
@@ -181,7 +181,7 @@ function getTeamRoster(team_key) {
   }
 } //end getTeamRoster()
 
-function modifyRoster(team_key, coverage_type, coverage_period, new_player_positions) {
+function modifyRoster(teamKey, coverageType, coveragePeriod, newPlayerPositions) {
   //ensure that we have access to Yahoo prior to using function
   const yahooService = getYahooService_();
   if (yahooService.hasAccess()) {
@@ -189,20 +189,20 @@ function modifyRoster(team_key, coverage_type, coverage_period, new_player_posit
     // Build the input XML to move players to new positions
     const startXML = '<fantasy_content>' +
       '<roster>' +
-      '<coverage_type>' + coverage_type + '</coverage_type>' +
-      '<' + coverage_type + '>' + coverage_period + '</' + coverage_type + '>' +
+      '<coverage_type>' + coverageType + '</coverage_type>' +
+      '<' + coverageType + '>' + coveragePeriod + '</' + coverageType + '>' +
       '<players>';
     const endXML = '</players>' +
       '</roster>' +
       '</fantasy_content>';
 
-    // Loop over the new_player_positions array passed in to create all player modification entries
+    // Loop over the newPlayerPositions array passed in to create all player modification entries
     var bodyXML = "";
-    for (const player_key in new_player_positions) {
-      const position = new_player_positions[player_key];
+    for (const playerKey in newPlayerPositions) {
+      const position = newPlayerPositions[playerKey];
 
       bodyXML += '<player>' +
-        '<player_key>' + player_key + '</player_key>' +
+        '<player_key>' + playerKey + '</player_key>' +
         '<position>' + position + '</position>' +
         '</player>';
     }
@@ -224,7 +224,7 @@ function modifyRoster(team_key, coverage_type, coverage_period, new_player_posit
     };
 
     //PUT the roster modification
-    const response = UrlFetchApp.fetch('https://fantasysports.yahooapis.com/fantasy/v2/team/' + team_key + '/roster', options);
+    const response = UrlFetchApp.fetch('https://fantasysports.yahooapis.com/fantasy/v2/team/' + teamKey + '/roster', options);
     return response.getContentText();
   } else {
     // Present authorization URL to user in the logs

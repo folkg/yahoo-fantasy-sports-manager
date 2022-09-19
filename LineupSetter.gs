@@ -2,10 +2,10 @@ function setHockeyLineups() {
   if (hockeyScriptRunTimes()) {
     const teams = getTeams("nhl");
     Logger.log("Settings Lineups for the following teams: " + teams);
-    teams.forEach((team_key) => {
-      const roster = getTeamRoster(team_key);
+    teams.forEach((teamKey) => {
+      const roster = getTeamRoster(teamKey);
       editStartingLineup(roster);
-      Logger.log("Lineup set for team " + team_key);
+      Logger.log("Lineup set for team " + teamKey);
     });
   }
 }
@@ -14,10 +14,10 @@ function setFootballLineups() {
   if (footballScriptRunTimes()) {
     const teams = getTeams("nfl");
     Logger.log("Settings Lineups for the following teams: " + teams);
-    teams.forEach((team_key) => {
-      const roster = getTeamRoster(team_key);
+    teams.forEach((teamKey) => {
+      const roster = getTeamRoster(teamKey);
       editStartingLineup(roster);
-      Logger.log("Lineup set for team " + team_key);
+      Logger.log("Lineup set for team " + teamKey);
     });
   }
 }
