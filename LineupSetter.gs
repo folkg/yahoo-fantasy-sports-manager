@@ -74,6 +74,9 @@ function editStartingLineup(teamRoster) {
     } //end if player is editable
   });
 
+  // If there are no editable roster players, return from the function at this point.
+  if (rostered.length === 0) return;
+
   // Sort both player arrays by percent_started
   // We will use this as a crowd-sourced method to determine which players should be started over others
   const compareByPercentStarted = (a, b) => {
@@ -219,20 +222,11 @@ function editStartingLineup(teamRoster) {
     // Pop the benchPlayer off the benched stack, it will either be moved to the roster, or it belongs on the bench and can be ignored.
     const benchPlayer = benched.pop();
 
-    //TODO: Temporary try/catch to determine the variable content when the error occurs.
-    try {
-      // Only attempt to swap player if it is better than at least one player on the active roster. Otherwise, just discard and move to the next.
-      if (compareByPercentStarted(benchPlayer, rostered[0]) > 0) {
-        swapPlayerToActiveRoster(benchPlayer);
-      }
+    // Only attempt to swap player if it is better than at least one player on the active roster. Otherwise, just discard and move to the next.
+    if (compareByPercentStarted(benchPlayer, rostered[0]) > 0) {
+      swapPlayerToActiveRoster(benchPlayer);
     }
-    catch (err) {
-      Logger.log(err.stack);
-      Logger.log("benched.length: " + benched.length);
-      Logger.log("benchPlayer: " +benchPlayer.player_key);
-      Logger.log("rostered length: " + rostered.length);
-      Logger.log("rostered[0]: " +rostered[0].player_key);
-    }
+
   } //end while
 
   // Send the newPlayerPositions dictionary to Yahoo to make the changes official
