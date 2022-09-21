@@ -74,8 +74,9 @@ function editStartingLineup(teamRoster) {
     } //end if player is editable
   });
 
-  // If there are no editable roster players, return from the function at this point.
-  if (rostered.length === 0) return;
+  // If there are no editable roster players, or there are no editable bench and no editable IR players
+  // return from the function at this point.
+  if (rostered.length === 0 || (benched.length === 0 && healthyOnIR.length === 0)) return;
 
   // Sort both player arrays by percent_started
   // We will use this as a crowd-sourced method to determine which players should be started over others
