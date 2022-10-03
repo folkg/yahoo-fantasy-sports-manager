@@ -12,7 +12,7 @@ function test_API() {
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/teams';
     // const url = 'https://fantasysports.yahooapis.com/fantasy/v2/team/414.l.240994.t.12/roster/players;out=percent_started,opponent';
     // count=100 doesn't seem to do anything, return max 25
-    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/414.l.240994/players;sort=R_PO;status=A;out=percent_owned' // R_POC is the web version. Doesn't seem to work here.
+    const url = 'https://fantasysports.yahooapis.com/fantasy/v2/league/nhl.l.28340/players;position=G;sort=R_PO;status=A;out=percent_owned' // R_POC is the web version. Doesn't seem to work here.
     response = UrlFetchApp.fetch(url, {
       headers: {
         'Authorization': 'Bearer ' + yahooService.getAccessToken()

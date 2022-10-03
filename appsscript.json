@@ -11,6 +11,11 @@
         "userSymbol": "BetterLog",
         "version": "27",
         "libraryId": "1DSyxam1ceq72bMHsE6aOVeOl94X78WCwiYPytKi7chlg4x5GqiNXSw0l"
+      },
+      {
+        "userSymbol": "Cheerio",
+        "version": "14",
+        "libraryId": "1ReeQ6WO8kKNxoaA_O0XEQ589cIrRvEBA9qcWpNqdOP17i47u6N9M5Xh0"
       }
     ]
   },
