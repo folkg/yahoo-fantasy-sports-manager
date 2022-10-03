@@ -11,7 +11,8 @@ https://developer.yahoo.com/oauth2/guide/openid_connect/getting_started.html#get
 
 2. In the `YahooFantasyAPIService.gs` file, find the `setClientIdSecret_()` function. Add the clientId and clientSecret in place of the "TBD" placeholders. Run this function to set your credentials as a global property for the Google Apps Script project.
 
-3. Set triggers for `setHockeyLineups()` and/or `setFootballLienups()` functions within `LineupSetter.gs` file. These functions will gather your team info, and then proceed to set the lineups for the current day. There are helper functions to only make the Yahoo API calls during reasonable hours for each sport to limit the traffic (e.g. you don't need to set the lineup at 4am). Triggers can be set either with the `createTimeDrivenTriggers()` function, or manually for each function in the project triggers area.
+3. Set triggers for `setHockeyLineups()` and/or `setFootballLienups()` functions within `LineupSetter.gs` file. These functions will gather your team info, and then proceed to set the lineups for the current day. Having triggers for these functions in place for the GAS project is required for the automation of setting the lineups, otherwise no code will be run unless done manually.
+There are helper functions to only make the Yahoo API calls during reasonable hours for each sport to limit the traffic (e.g. you don't need to set the lineup at 4am). Triggers can be set either with the `createTimeDrivenTriggers()` function, or manually for each function in the project triggers area.
 
 4. Sit back, and enjoy your fantasy success.
 
